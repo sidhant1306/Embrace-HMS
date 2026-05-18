@@ -1,0 +1,7 @@
+node_modules/
+hms-frontend/node_modules/
+hms-backend/target/
+.idea/
+.vscode/
+.env
+*.log
