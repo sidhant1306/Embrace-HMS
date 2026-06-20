@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 /**
  * Generate a professional Embrace Hospital lab report PDF.
@@ -89,7 +89,7 @@ export function generateLabReportPdf({
   });
 
   if (tableData.length > 0) {
-    doc.autoTable({
+    autoTable(doc, {
       startY: y,
       head: [['Parameter', 'Value', 'Unit', 'Reference Range', 'Status']],
       body: tableData,
@@ -127,7 +127,7 @@ export function generateLabReportPdf({
         }
       },
     });
-    y = doc.lastAutoTable.finalY + 10;
+    y = (doc.lastAutoTable?.finalY || y) + 10;
   } else {
     y += 6;
     doc.setFontSize(10);

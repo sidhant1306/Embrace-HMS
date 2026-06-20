@@ -23,6 +23,7 @@ import com.lowagie.text.pdf.draw.LineSeparator;
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
 
 public final class BillPdfGenerator {
@@ -255,11 +256,11 @@ public final class BillPdfGenerator {
 
         // Subtotal
         totalsTable.addCell(summaryLabel("Subtotal", labelFont));
-        totalsTable.addCell(summaryValue(formatRupees(bill.getSubTotal() != null ? bill.getSubTotal() : 0.0), valueFont, Color.WHITE));
+        totalsTable.addCell(summaryValue(formatRupees(bill.getSubTotal()), valueFont, Color.WHITE));
 
         // Tax
         totalsTable.addCell(summaryLabel("Tax (" + bill.getTaxPercent() + "%)", labelFont));
-        totalsTable.addCell(summaryValue(formatRupees(bill.getTaxAmount() != null ? bill.getTaxAmount() : 0.0), valueFont, Color.WHITE));
+        totalsTable.addCell(summaryValue(formatRupees(bill.getTaxAmount()), valueFont, Color.WHITE));
 
         // Divider
         PdfPCell divL = dividerCell();
@@ -274,7 +275,7 @@ public final class BillPdfGenerator {
         totalLabelCell.setBorder(Rectangle.NO_BORDER);
         totalsTable.addCell(totalLabelCell);
 
-        PdfPCell totalValCell = new PdfPCell(new Phrase(formatRupees(bill.getTotalAmount() != null ? bill.getTotalAmount() : 0.0), totalValueFont));
+        PdfPCell totalValCell = new PdfPCell(new Phrase(formatRupees(bill.getTotalAmount()), totalValueFont));
         totalValCell.setBackgroundColor(TOTAL_ROW_BG);
         totalValCell.setPadding(8f);
         totalValCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
@@ -282,13 +283,13 @@ public final class BillPdfGenerator {
         totalsTable.addCell(totalValCell);
 
         // Amount paid
-        double paid = bill.getAmountPaid() != null ? bill.getAmountPaid() : 0.0;
+        BigDecimal paid = bill.getAmountPaid() != null ? bill.getAmountPaid() : BigDecimal.ZERO;
         totalsTable.addCell(summaryLabel("Amount Paid", labelFont));
         totalsTable.addCell(summaryValue(formatRupees(paid), paidFont, Color.WHITE));
 
         // Balance due
-        double balance = bill.getBalanceDue() != null ? bill.getBalanceDue() : 0.0;
-        Font balFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9.5f, balance > 0 ? PENDING_ORANGE : PAID_GREEN);
+        BigDecimal balance = bill.getBalanceDue() != null ? bill.getBalanceDue() : BigDecimal.ZERO;
+        Font balFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9.5f, balance.compareTo(BigDecimal.ZERO) > 0 ? PENDING_ORANGE : PAID_GREEN);
         totalsTable.addCell(summaryLabel("Balance Due", labelFont));
         totalsTable.addCell(summaryValue(formatRupees(balance), balFont, Color.WHITE));
 
@@ -380,9 +381,9 @@ public final class BillPdfGenerator {
         return c;
     }
 
-    /** Format a rupee double value: 500.0 → ₹500.00 */
-    private static String formatRupees(double rupees) {
-        return String.format("\u20B9%.2f", rupees);
+    /** Format a rupee amount: 500.0 -> ₹500.00 */
+    private static String formatRupees(BigDecimal rupees) {
+        return "\u20B9" + (rupees != null ? rupees.setScale(2, java.math.RoundingMode.HALF_UP) : "0.00");
     }
 
     /** Capitalize enum label: CONSULTATION → Consultation */

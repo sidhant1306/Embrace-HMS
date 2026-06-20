@@ -54,6 +54,11 @@ public class PrescriptionController {
         return prescriptionService.getDoctorPrescriptions(pageable);
     }
 
+    @GetMapping("/my")
+    public Page<PrescriptionResponseDto> getMyPrescriptions(Pageable pageable) {
+        return prescriptionService.getDoctorPrescriptions(pageable);
+    }
+
     @GetMapping("/incoming")
     public Page<PrescriptionResponseDto> getIncomingPrescriptions(Pageable pageable) {
         return prescriptionService.getIncomingPrescriptions(pageable);

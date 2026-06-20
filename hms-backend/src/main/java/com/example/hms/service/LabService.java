@@ -6,6 +6,7 @@ import com.example.hms.dao.LabReportRepository;
 import com.example.hms.dao.PatientRepository;
 import com.example.hms.dto.lab_dto.LabOrderRequestDto;
 import com.example.hms.dto.lab_dto.LabOrderResponseDto;
+import com.example.hms.dto.lab_dto.LabReportRequestDto;
 import com.example.hms.dto.lab_dto.LabReportResponseDto;
 import com.example.hms.enums.LabOrderStatuses;
 import com.example.hms.exception.ResourceNotFoundException;
@@ -134,6 +135,28 @@ public class LabService {
         return ResponseEntity.ok(LabMapper.toReportResponse(savedReport));
     }
 
+    @Transactional
+    public ResponseEntity<LabReportResponseDto> uploadLabReport(Integer labOrderId, LabReportRequestDto dto) {
+        LabOrders order = labOrdersRepository.findById(labOrderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lab order not found with ID: " + labOrderId));
+        Patient patient = patientRepository.findById(dto.getPatientId())
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found with ID: " + dto.getPatientId()));
+
+        LabReport report = new LabReport();
+        report.setLabOrder(order);
+        report.setPatient(patient);
+        report.setReportFilePath(dto.getReportFilePath());
+        report.setDoctorNotes(dto.getDoctorNotes());
+        report.setViewedByDoctor(dto.isViewedByDoctor());
+        report.setViewedByPatient(dto.isViewedByPatient());
+        report.setUploadedAt(LocalDateTime.now());
+
+        LabReport savedReport = labReportRepository.save(report);
+        order.setLabOrderStatus(LabOrderStatuses.COMPLETED);
+        labOrdersRepository.save(order);
+        return ResponseEntity.ok(LabMapper.toReportResponse(savedReport));
+    }
+
     @Transactional(readOnly = true)
     public ResponseEntity<Resource> downloadReport(Integer labReportId) {
         LabReport report = labReportRepository.findById(labReportId)
@@ -167,6 +190,11 @@ public class LabService {
     public Page<LabOrderResponseDto> getAllOrders(Pageable pageable) {
         return labOrdersRepository.findAll(pageable)
                 .map(LabMapper::toOrderResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<LabReportResponseDto> getAllReports(Pageable pageable) {
+        return labReportRepository.findAll(pageable).map(LabMapper::toReportResponse);
     }
 
     @Transactional(readOnly = true)

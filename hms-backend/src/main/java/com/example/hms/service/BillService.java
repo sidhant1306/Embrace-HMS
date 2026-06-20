@@ -36,12 +36,16 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.EnumSet;
 import java.util.List;
 
 @Service
 public class BillService {
+
+    private static final BigDecimal ONE_HUNDRED = BigDecimal.valueOf(100);
+    private static final BigDecimal ZERO = BigDecimal.ZERO;
 
     private final BillRepository billRepository;
     private final ConsultationRepository consultationRepository;
@@ -53,13 +57,13 @@ public class BillService {
     private final NotificationService notificationService;
 
     @Value("${billing.consultation-fee-paise:50000}")
-    private Double consultationFee;
+    private BigDecimal consultationFee;
 
     @Value("${billing.tax-percent:5}")
     private String taxPercent;
 
     @Value("${billing.default-lab-test-paise:150000}")
-    private Double defaultLabTestFee;
+    private BigDecimal defaultLabTestFee;
 
     public BillService(BillRepository billRepository,
                        ConsultationRepository consultationRepository,
@@ -98,7 +102,7 @@ public class BillService {
         bill.setPatient(patient);
         bill.setConsultation(consultation);
         bill.setPaymentStatuses(PaymentStatuses.PENDING);
-        bill.setAmountPaid(0.0);
+        bill.setAmountPaid(ZERO);
         bill.setTaxPercent(taxPercent);
         bill.setCreatedAt(LocalDateTime.now());
         bill.setUpdatedAt(LocalDateTime.now());
@@ -115,7 +119,7 @@ public class BillService {
         // if you find any lab order attached to the consultation id create a bill for that :
         List<LabOrders> labs = labOrdersRepository.findByConsultation_ConsultationId(consultation.getConsultationId());
         for (LabOrders lab : labs) {
-            Double price = lab.getPricePaise() != null ? lab.getPricePaise().doubleValue() : defaultLabTestFee;
+            BigDecimal price = lab.getPricePaise() != null ? BigDecimal.valueOf(lab.getPricePaise()) : defaultLabTestFee;
             BillItem line = new BillItem();
             line.setItemName("Lab: " + lab.getLabOrderTestName());
             line.setItemType(ItemTypes.LAB);
@@ -138,8 +142,8 @@ public class BillService {
                     throw new ResourceNotFoundException("Medicine not in inventory for billing: " + item.getMedicineName());
                 }
                 Integer qty = item.getMedicineDurationDays() * item.getMedicineFrequency();
-                Double unitPrice = parseInventoryPriceToDouble(inv.getMedicinePrice());
-                Double lineTotal = qty * unitPrice;
+                BigDecimal unitPrice = parseInventoryPrice(inv.getMedicinePrice());
+                BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(qty));
                 BillItem line = new BillItem();
                 line.setItemName("Medicine: " + item.getMedicineName());
                 line.setItemType(ItemTypes.MEDICINE);
@@ -157,7 +161,7 @@ public class BillService {
         // Auto-notify patient about new bill
         try {
             if (patient.getUser() != null) {
-                String totalFormatted = String.format("₹%.2f", saved.getTotalAmount() / 100.0);
+                String totalFormatted = "₹" + saved.getTotalAmount().divide(ONE_HUNDRED, 2, RoundingMode.HALF_UP);
                 notificationService.notifyUser(
                     patient.getUser().getUserId(),
                     "New Bill Generated",
@@ -182,8 +186,8 @@ public class BillService {
         if (dto.getItemType() != ItemTypes.EXTRA) {
             throw new IllegalArgumentException("Extra charges must use itemType EXTRA");
         }
-        Integer qty = Math.max(1, dto.getQuantity());
-        Double lineTotal = qty * dto.getUnitPrice();
+        Integer qty = dto.getQuantity() != null ? Math.max(1, dto.getQuantity()) : 1;
+        BigDecimal lineTotal = dto.getUnitPrice().multiply(BigDecimal.valueOf(qty));
         BillItem line = new BillItem();
         line.setItemName(dto.getItemName());
         line.setItemType(ItemTypes.EXTRA);
@@ -201,19 +205,20 @@ public class BillService {
     public BillResponseDto makePayment(Integer billId, PaymentRequestDto dto) {
         Bill bill = billRepository.findWithDetailsById(billId)
                 .orElseThrow(() -> new ResourceNotFoundException("Bill not found: " + billId));
-        if (dto.getPaymentAmount() <= 0) {
+        if (dto.getPaymentAmount() == null || dto.getPaymentAmount().compareTo(ZERO) <= 0) {
             throw new IllegalArgumentException("Payment amount must be positive");
         }
-        Double currentPaid = bill.getAmountPaid() != null ? bill.getAmountPaid() : 0.0;
-        Double newPaid = currentPaid + dto.getPaymentAmount();
+        BigDecimal currentPaid = bill.getAmountPaid() != null ? bill.getAmountPaid() : ZERO;
+        BigDecimal totalAmount = bill.getTotalAmount() != null ? bill.getTotalAmount() : ZERO;
+        BigDecimal newPaid = currentPaid.add(dto.getPaymentAmount());
         bill.setPaymentMethod(dto.getPaymentMethod());
-        if (newPaid >= bill.getTotalAmount()) {
-            bill.setAmountPaid(bill.getTotalAmount());
-            bill.setBalanceDue(0.0);
+        if (newPaid.compareTo(totalAmount) >= 0) {
+            bill.setAmountPaid(totalAmount);
+            bill.setBalanceDue(ZERO);
             bill.setPaymentStatuses(PaymentStatuses.PAID);
         } else {
             bill.setAmountPaid(newPaid);
-            bill.setBalanceDue(bill.getTotalAmount() - newPaid);
+            bill.setBalanceDue(totalAmount.subtract(newPaid));
             bill.setPaymentStatuses(PaymentStatuses.PARTIALLY_PAID);
         }
         bill.setUpdatedAt(LocalDateTime.now());
@@ -280,42 +285,46 @@ public class BillService {
         }
     }
 
-    private void recalculateTotals(Bill bill) {
-        Double sub = bill.getBillItems().stream().mapToDouble(BillItem::getLineTotal).sum();
+    void recalculateTotals(Bill bill) {
+        BigDecimal sub = bill.getBillItems().stream()
+                .map(BillItem::getLineTotal)
+                .filter(amount -> amount != null)
+                .reduce(ZERO, BigDecimal::add);
         bill.setSubTotal(sub); // total without tax
-        int pct = parseTaxPercent(bill.getTaxPercent());
-        Double tax = sub * pct / 100;
+        BigDecimal pct = parseTaxPercent(bill.getTaxPercent());
+        BigDecimal tax = sub.multiply(pct).divide(ONE_HUNDRED, 2, RoundingMode.HALF_UP);
         bill.setTaxAmount(tax);
-        bill.setTotalAmount(sub + tax);
+        bill.setTotalAmount(sub.add(tax));
         // check if any amount is paid :
-        Double paid = bill.getAmountPaid() != null ? bill.getAmountPaid() : 0.0;
-        bill.setBalanceDue(Math.max(0.0, bill.getTotalAmount() - paid));
-        if (paid >= bill.getTotalAmount() && bill.getTotalAmount() > 0) {
+        BigDecimal paid = bill.getAmountPaid() != null ? bill.getAmountPaid() : ZERO;
+        BigDecimal balanceDue = bill.getTotalAmount().subtract(paid).max(ZERO);
+        bill.setBalanceDue(balanceDue);
+        if (paid.compareTo(bill.getTotalAmount()) >= 0 && bill.getTotalAmount().compareTo(ZERO) > 0) {
             bill.setPaymentStatuses(PaymentStatuses.PAID);
-            bill.setBalanceDue(0.0);
-        } else if (paid > 0) {
+            bill.setBalanceDue(ZERO);
+        } else if (paid.compareTo(ZERO) > 0) {
             bill.setPaymentStatuses(PaymentStatuses.PARTIALLY_PAID);
         } else {
             bill.setPaymentStatuses(PaymentStatuses.PENDING);
         }
     }
 
-    private int parseTaxPercent(String percent) {
+    private BigDecimal parseTaxPercent(String percent) {
         try {
-            return Integer.parseInt(percent.trim().replace("%", ""));
+            return new BigDecimal(percent.trim().replace("%", ""));
         } catch (Exception e) {
-            return 0;
+            return ZERO;
         }
     }
 
-    private static Double parseInventoryPriceToDouble(String price) {
+    private static BigDecimal parseInventoryPrice(String price) {
         if (price == null || price.isBlank()) {
-            return 0.0;
+            return ZERO;
         }
         try {
-            return new BigDecimal(price.trim()).doubleValue();
+            return new BigDecimal(price.trim());
         } catch (NumberFormatException e) {
-            return 0.0;
+            return ZERO;
         }
     }
 }

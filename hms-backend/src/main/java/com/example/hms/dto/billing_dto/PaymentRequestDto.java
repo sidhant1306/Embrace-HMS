@@ -7,13 +7,15 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class PaymentRequestDto {
 
     @Positive
-    private Double paymentAmount;
+    private BigDecimal paymentAmount;
 
     @NotNull
     private PaymentMethod paymentMethod;

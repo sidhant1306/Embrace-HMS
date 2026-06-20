@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Data
@@ -13,13 +14,13 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class BillRequestDto {
-    private Double subTotal;
+    private BigDecimal subTotal;
     private String taxPercent;
-    private Double taxAmount;
-    private Double totalAmount;
+    private BigDecimal taxAmount;
+    private BigDecimal totalAmount;
     private PaymentStatuses paymentStatuses;
-    private Double amountPaid;
-    private Double balanceDue;
+    private BigDecimal amountPaid;
+    private BigDecimal balanceDue;
     private Integer consultationId;
     private List<BillItemDto> billItems;
 }

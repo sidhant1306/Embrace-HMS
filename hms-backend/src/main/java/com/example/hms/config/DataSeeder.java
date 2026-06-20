@@ -36,6 +36,7 @@ public class DataSeeder implements CommandLineRunner {
     @Override
     public void run(String... args) {
         seedAdmin();
+        seedStaff();
         seedDoctors();
     }
 
@@ -66,6 +67,42 @@ public class DataSeeder implements CommandLineRunner {
             } catch (Exception e) {
                 System.out.println("⚠️  Could not seed admin: " + e.getMessage());
             }
+        }
+    }
+
+    /* ─────────────────── STAFF ─────────────────── */
+    private void seedStaff() {
+        record StaffSeed(String name, String email, String phone, Genders gender, Roles role, String password) {}
+
+        List<StaffSeed> staff = List.of(
+                new StaffSeed("Receptionist", "receptionist@embrace.com", "9200000001", Genders.FEMALE, Roles.RECEPTIONIST, "Receptionist@123"),
+                new StaffSeed("Lab Technician", "lab@embrace.com", "9200000002", Genders.MALE, Roles.LAB_TECHNICIAN, "Lab@123"),
+                new StaffSeed("Pharmacist", "pharmacist@embrace.com", "9200000003", Genders.FEMALE, Roles.PHARMACIST, "Pharmacist@123"),
+                new StaffSeed("Nurse", "nurse@embrace.com", "9200000004", Genders.FEMALE, Roles.NURSE, "Nurse@123")
+        );
+
+        int created = 0;
+        for (StaffSeed s : staff) {
+            if (userRepository.findByUserEmail(s.email()).isPresent()) {
+                continue;
+            }
+            try {
+                User user = new User();
+                user.setUserName(s.name());
+                user.setUserEmail(s.email());
+                user.setUserPassword(passwordEncoder.encode(s.password()));
+                user.setUserPhone(s.phone());
+                user.setUserGender(s.gender());
+                user.setUserRole(s.role());
+                userRepository.save(user);
+                created++;
+            } catch (Exception e) {
+                System.out.println("⚠️  Could not seed staff " + s.name() + ": " + e.getMessage());
+            }
+        }
+
+        if (created > 0) {
+            System.out.println("✅ Seeded " + created + " staff accounts");
         }
     }
 

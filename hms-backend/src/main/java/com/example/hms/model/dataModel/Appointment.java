@@ -11,6 +11,13 @@ import java.time.LocalDateTime;
 
 @Data
 @Entity
+@Table(
+        name = "appointment",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_appointment_doctor_slot",
+                columnNames = {"doctor_id", "appointment_date", "appointment_time"}
+        )
+)
 public class Appointment {
 
     @Id

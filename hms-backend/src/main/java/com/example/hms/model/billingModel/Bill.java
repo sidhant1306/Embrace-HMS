@@ -10,6 +10,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,13 +24,13 @@ public class Bill {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer billId;
 
-    private Double subTotal;
+    private BigDecimal subTotal;
 
     private String taxPercent;
 
-    private Double taxAmount;
+    private BigDecimal taxAmount;
 
-    private Double totalAmount;
+    private BigDecimal totalAmount;
 
     @Enumerated(EnumType.STRING)
     private PaymentStatuses paymentStatuses;
@@ -37,9 +38,9 @@ public class Bill {
     @Enumerated(EnumType.STRING)
     private PaymentMethod paymentMethod;
 
-    private Double amountPaid;
+    private BigDecimal amountPaid;
 
-    private Double balanceDue;
+    private BigDecimal balanceDue;
 
     private LocalDateTime createdAt;
 

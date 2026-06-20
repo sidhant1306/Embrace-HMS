@@ -9,12 +9,14 @@ import com.example.hms.dto.appointment_dto.AppointmentRequestDto;
 import com.example.hms.dto.appointment_dto.AppointmentResponseDto;
 import com.example.hms.enums.Roles;
 import com.example.hms.enums.Statuses;
+import com.example.hms.exception.AlreadyExistsException;
 import com.example.hms.exception.ResourceNotFoundException;
 import com.example.hms.mapper.AppointmentMapper;
 import com.example.hms.model.dataModel.Appointment;
 import com.example.hms.model.profileModel.Doctor;
 import com.example.hms.model.profileModel.Patient;
 import com.example.hms.model.profileModel.User;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -65,8 +67,12 @@ public class AppointmentService {
         appointment.setAppointmentCreatedAt(now);
         appointment.setAppointmentUpdatedAt(now);
 
-        Appointment saved = appointmentRepository.save(appointment);
-        return ResponseEntity.ok(AppointmentMapper.toResponse(saved));
+        try {
+            Appointment saved = appointmentRepository.saveAndFlush(appointment);
+            return ResponseEntity.ok(AppointmentMapper.toResponse(saved));
+        } catch (DataIntegrityViolationException ex) {
+            throw new AlreadyExistsException("Doctor is already booked for this appointment slot");
+        }
     }
 
     @Transactional

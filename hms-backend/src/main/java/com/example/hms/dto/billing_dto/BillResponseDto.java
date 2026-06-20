@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -17,14 +18,14 @@ import java.util.List;
 public class BillResponseDto {
     private Integer billId;
     private Integer patientId;
-    private Double subTotal;
+    private BigDecimal subTotal;
     private String taxPercent;
-    private Double taxAmount;
-    private Double totalAmount;
+    private BigDecimal taxAmount;
+    private BigDecimal totalAmount;
     private PaymentStatuses paymentStatuses;
     private PaymentMethod paymentMethod;
-    private Double amountPaid;
-    private Double balanceDue;
+    private BigDecimal amountPaid;
+    private BigDecimal balanceDue;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private Integer consultationId;

@@ -52,6 +52,11 @@ public class LabController {
         return labService.getAllOrders(pageable);
     }
 
+    @GetMapping("/all-reports")
+    public Page<LabReportResponseDto> getAllReports(Pageable pageable) {
+        return labService.getAllReports(pageable);
+    }
+
     @GetMapping("/order/{labOrderId}")
     public ResponseEntity<LabOrderResponseDto> getLabOrderById(@PathVariable Integer labOrderId) {
         return labService.getLabOrderById(labOrderId);
