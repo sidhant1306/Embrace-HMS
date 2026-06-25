@@ -1,16 +1,15 @@
 services:
-  postgres:
-    image: postgres:15
-    container_name: embrace-hospital-postgres
-    restart: unless-stopped
+  db:
+    image: postgres:16-alpine
+    container_name: hms-db
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - hms-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -21,21 +20,38 @@ services:
     build:
       context: ./hms-backend
       dockerfile: Dockerfile
-    container_name: embrace-hospital-backend
-    restart: unless-stopped
+    container_name: hms-backend
+    env_file:
+      - ./hms-backend/.env
     environment:
-      SPRING_PROFILES_ACTIVE: prod
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
-      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:*}
-    ports:
-      - "${BACKEND_PORT:-8080}:8080"
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
+    networks:
+      - hms-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: ./hms-frontend
+      dockerfile: Dockerfile
+    container_name: hms-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - hms-network
+
+networks:
+  hms-network:
+    driver: bridge
 
 volumes:
-  postgres-data:
+  postgres_data:
