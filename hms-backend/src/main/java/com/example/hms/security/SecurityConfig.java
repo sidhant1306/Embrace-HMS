@@ -56,6 +56,7 @@ public class SecurityConfig {
                         .accessDeniedHandler(accessDeniedHandler))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
+			.requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/api/auth/register-staff").hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
